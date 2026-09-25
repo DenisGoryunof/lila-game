@@ -7,8 +7,6 @@ import './App.css'
 
 const sleep = (ms) => new Promise(r => setTimeout(r, ms))
 
-/* ---------- Кубик ---------- */
-
 function Dice({ value, rolling }) {
   const dotMap = {
     1: [[1, 1]],
@@ -29,9 +27,6 @@ function Dice({ value, rolling }) {
     </div>
   )
 }
-
-/* ---------- Memoized слои SVG ---------- */
-/* Они не перерисовываются во время движения фишки — это снимает нагрузку */
 
 const CellsLayer = memo(function CellsLayer({ position, landedCell }) {
   const cells = []
@@ -133,8 +128,6 @@ const SnakesLayer = memo(function SnakesLayer({ visuals }) {
   )
 })
 
-/* ---------- Главный компонент ---------- */
-
 export default function App() {
   const [position, setPosition] = useState(0)
   const [intention, setIntention] = useState('')
@@ -145,23 +138,17 @@ export default function App() {
   const [isRolling, setIsRolling] = useState(false)
   const [isMoving, setIsMoving] = useState(false)
   const [history, setHistory] = useState([])
+  const [rolls, setRolls] = useState([])   // все значения кубика за игру
   const [pawnPos, setPawnPos] = useState(cellCenter(1))
   const pawnPosRef = useRef(cellCenter(1))
   const busyRef = useRef(false)
 
-  // ——— Предрасчёт визуалов (один раз за всю сессию) ———
   const snakeVisuals = useMemo(() => {
     return Object.entries(SNAKES).map(([from, to]) => {
       const fromN = Number(from)
       const toN = Number(to)
       const points = buildSnakePoints(fromN, toN)
-      return {
-        from: fromN,
-        to: toN,
-        points,
-        path: pointsToPath(points),
-        head: points[0]
-      }
+      return { from: fromN, to: toN, points, path: pointsToPath(points), head: points[0] }
     })
   }, [])
 
@@ -176,9 +163,7 @@ export default function App() {
       const headHalf = 0.42
 
       return {
-        from: fromN,
-        to: toN,
-        p1, p2, angle,
+        from: fromN, to: toN, p1, p2, angle,
         headPoints: [
           p2,
           { x: p2.x - headSize * Math.cos(angle - headHalf), y: p2.y - headSize * Math.sin(angle - headHalf) },
@@ -203,25 +188,13 @@ export default function App() {
     })
   }, [])
 
-  /* ---------- Анимации ---------- */
-  /* Ключевые изменения:
-     – индекс точки зажимается в допустимый диапазон (иначе points[i0] = undefined → крэш → вечное зависание)
-     – прогресс t зажимается в [0, 1]
-     – страховочный setTimeout всегда резолвит промис, даже если rAF не сработал
-  */
-
   function animateTo(target, duration) {
     const start = { ...pawnPosRef.current }
     return new Promise(resolve => {
       const t0 = performance.now()
       let finished = false
-      const finish = () => {
-        if (finished) return
-        finished = true
-        resolve()
-      }
+      const finish = () => { if (!finished) { finished = true; resolve() } }
       const safety = setTimeout(finish, duration + 1000)
-
       const tick = now => {
         if (finished) return
         let t = (now - t0) / duration
@@ -246,19 +219,13 @@ export default function App() {
       const t0 = performance.now()
       const maxIdx = points.length - 1
       let finished = false
-      const finish = () => {
-        if (finished) return
-        finished = true
-        resolve()
-      }
+      const finish = () => { if (!finished) { finished = true; resolve() } }
       const safety = setTimeout(finish, duration + 1000)
-
       const tick = now => {
         if (finished) return
         let t = (now - t0) / duration
         if (!isFinite(t) || t < 0) t = 0
         if (t > 1) t = 1
-
         let idx = t * maxIdx
         if (idx < 0) idx = 0
         if (idx > maxIdx) idx = maxIdx
@@ -267,7 +234,6 @@ export default function App() {
         const frac = Math.max(0, Math.min(1, idx - i0))
         const p0 = points[i0]
         const p1 = points[i1] || p0
-
         const pos = {
           x: p0.x + (p1.x - p0.x) * frac,
           y: p0.y + (p1.y - p0.y) * frac
@@ -280,8 +246,6 @@ export default function App() {
       requestAnimationFrame(tick)
     })
   }
-
-  /* ---------- Ход ---------- */
 
   async function roll() {
     if (busyRef.current) return
@@ -297,8 +261,8 @@ export default function App() {
 
     try {
       const finalRoll = Math.floor(Math.random() * 6) + 1
+      setRolls(prev => [...prev, finalRoll])
 
-      // Тряска кубика
       const shakeStart = Date.now()
       while (Date.now() - shakeStart < 900) {
         setDiceValue(Math.floor(Math.random() * 6) + 1)
@@ -308,30 +272,28 @@ export default function App() {
       setIsRolling(false)
       await sleep(400)
 
-      // Рождение
       if (position === 0) {
         if (finalRoll === 6) {
           setPosition(6)
           setLandedCell(6)
           await animateTo(cellCenter(6), 500)
-          setMessage('Ты родился! Клетка 6 — Эго.')
+          setMessage(`🎲 Выпало 6. Ты родился! Клетка 6 — ${CELLS[6].name}.`)
           setHint(CELLS[6]?.hint || '')
           setHistory(prev => [...prev, {
             turn: prev.length + 1, intention, roll: finalRoll, to: 6, type: 'birth'
           }])
           setIntention('')
         } else {
-          setMessage(`Выпало ${finalRoll}. Чтобы родиться, нужна 6. Намерение сохранено — попробуй снова.`)
+          setMessage(`🎲 Выпало ${finalRoll}. Чтобы родиться, нужна 6. Намерение сохранено — попробуй снова.`)
         }
         return
       }
 
       if (position + finalRoll > 72) {
-        setMessage(`Выпало ${finalRoll}, но нужно ровно ${72 - position}. Ход пропущен.`)
+        setMessage(`🎲 Выпало ${finalRoll}, но нужно ровно ${72 - position} для точного попадания. Ход пропущен.`)
         return
       }
 
-      // Пошаговое движение
       setIsMoving(true)
       const startPos = position
       for (let step = 1; step <= finalRoll; step++) {
@@ -342,27 +304,31 @@ export default function App() {
       const arrow = arrowVisuals.find(a => a.from === landed)
       const snake = snakeVisuals.find(s => s.from === landed)
 
-      // Стрела
+      // Проверка на повторяющийся урок: та же змея, что и в прошлый раз
+      const lastSnake = history.length > 0
+        ? history[history.length - 1].from
+        : null
+
       if (arrow) {
         await sleep(250)
-        setMessage(`⬆ Стрела возносит: ${landed} — ${CELLS[landed]?.name} → ${ARROWS[landed]} — ${CELLS[ARROWS[landed]]?.name}`)
+        setMessage(`🎲 Выпало ${finalRoll}. ⬆ Стрела: ${landed} (${CELLS[landed]?.name}) → ${ARROWS[landed]} (${CELLS[ARROWS[landed]]?.name})`)
         setHint(CELLS[landed]?.hint || '')
         setLandedCell(ARROWS[landed])
         await animateAlong(arrow.points, 1300)
         setPosition(ARROWS[landed])
-      }
-      // Змея
-      else if (snake) {
+      } else if (snake) {
         await sleep(250)
-        setMessage(`⬇ Змея увлекает вниз: ${landed} — ${CELLS[landed]?.name} → ${SNAKES[landed]} — ${CELLS[SNAKES[landed]]?.name}`)
+        const repeat = lastSnake === landed
+        setMessage(
+          `🎲 Выпало ${finalRoll}. ⬇ Змея: ${landed} (${CELLS[landed]?.name}) → ${SNAKES[landed]} (${CELLS[SNAKES[landed]]?.name}).` +
+          (repeat ? ' Та же змея, что и в прошлый раз — это твой урок, задержись на нём.' : '')
+        )
         setHint(CELLS[landed]?.hint || '')
         setLandedCell(SNAKES[landed])
         await animateAlong(snake.points, 1500)
         setPosition(SNAKES[landed])
-      }
-      // Обычный ход
-      else {
-        setMessage(`Клетка ${landed} — ${CELLS[landed]?.name || ''}`)
+      } else {
+        setMessage(`🎲 Выпало ${finalRoll}. Клетка ${landed} — ${CELLS[landed]?.name || ''}`)
         setHint(CELLS[landed]?.hint || '')
         setLandedCell(landed)
       }
@@ -371,22 +337,21 @@ export default function App() {
         turn: prev.length + 1,
         intention,
         roll: finalRoll,
-        to: landed,
+        from: landed,              // куда фишка попала до стрелы/змеи
+        to: arrow ? ARROWS[landed] : snake ? SNAKES[landed] : landed,
         type: arrow ? 'arrow' : snake ? 'snake' : 'plain'
       }])
 
       if (landed === 72) {
-        setMessage('🎉 Ты достиг Мокши. Игра завершена.')
+        setMessage('🎉 Ты достиг клетки 72. Игра завершена.')
         setHint(CELLS[72].hint)
       }
 
       setIntention('')
     } catch (err) {
-      // Если что-то пошло не так — покажем в UI и в консоли, но игра не залипнет
       console.error('Ошибка во время хода:', err)
       setMessage('Произошла ошибка: ' + (err?.message || String(err)))
     } finally {
-      // ГЛАВНОЕ: всегда снимаем блокировку, что бы ни случилось
       setIsRolling(false)
       setIsMoving(false)
       busyRef.current = false
@@ -402,12 +367,11 @@ export default function App() {
     setLandedCell(null)
     setDiceValue(null)
     setHistory([])
+    setRolls([])
     const start = cellCenter(1)
     pawnPosRef.current = start
     setPawnPos(start)
   }
-
-  /* ---------- Рендер ---------- */
 
   return (
     <div className="app">
@@ -418,7 +382,7 @@ export default function App() {
 
       <div className="layout">
         <div className="board-wrap">
-          <svg viewBox="0 0 800 900" className="board-svg" preserveAspectRatio="xMidYMid meet">
+          <svg viewBox="0 0 900 800" className="board-svg" preserveAspectRatio="xMidYMid meet">
             <defs>
               <linearGradient id="arrowGrad" x1="0" y1="1" x2="0" y2="0">
                 <stop offset="0%" stopColor="#7a5a10" />
@@ -440,14 +404,13 @@ export default function App() {
               </pattern>
             </defs>
 
-            <rect width="800" height="900" fill="#080812" rx="14" />
-            <rect width="800" height="900" fill="url(#cellPattern)" rx="14" />
+            <rect width="900" height="800" fill="#080812" rx="14" />
+            <rect width="900" height="800" fill="url(#cellPattern)" rx="14" />
 
             <CellsLayer position={position} landedCell={landedCell} />
             <ArrowsLayer visuals={arrowVisuals} />
             <SnakesLayer visuals={snakeVisuals} />
 
-            {/* Фишка — единственное, что двигается */}
             <g transform={`translate(${pawnPos.x.toFixed(1)}, ${pawnPos.y.toFixed(1)})`}>
               <circle r="16" fill="rgba(245,215,110,0.25)" />
               <circle r="15" fill="url(#pawnGrad)" stroke="#fff8d0" strokeWidth="1" />
@@ -484,6 +447,15 @@ export default function App() {
             </button>
           </div>
 
+          {rolls.length > 0 && (
+            <div className="rolls-strip">
+              <span className="rolls-label">Броски:</span>
+              {rolls.map((r, i) => (
+                <span key={i} className="roll-chip">{r}</span>
+              ))}
+            </div>
+          )}
+
           <div className="message-block">
             <p className="message">{message}</p>
             {hint && (
@@ -507,7 +479,9 @@ export default function App() {
                     <span className="h-turn">#{h.turn}</span>
                     <span className="h-intention">«{h.intention}»</span>
                     <span className="h-roll">🎲 {h.roll}</span>
-                    <span className="h-to">→ {h.to}</span>
+                    <span className="h-to">
+                      {h.from !== h.to ? `${h.from}→${h.to}` : h.to}
+                    </span>
                   </li>
                 ))}
               </ul>
