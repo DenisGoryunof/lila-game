@@ -1,112 +1,69 @@
 * { box-sizing: border-box; }
 
-body {
+html, body {
   margin: 0;
-  background: #0e0e1a;
+  padding: 0;
+  background: radial-gradient(ellipse at top, #12122a 0%, #05050e 70%);
+  min-height: 100vh;
   color: #e0e0e8;
   font-family: 'Georgia', serif;
 }
 
 .app {
-  max-width: 1200px;
+  max-width: 1400px;
   margin: 0 auto;
   padding: 20px;
 }
 
 header { text-align: center; margin-bottom: 16px; }
-h1 { margin: 0; font-size: 32px; letter-spacing: 4px; color: #c9a227; }
-.subtitle { margin: 4px 0 0; color: #888; font-size: 13px; letter-spacing: 2px; }
+h1 { margin: 0; font-size: 34px; letter-spacing: 6px; color: #c9a227; text-shadow: 0 0 20px rgba(201,162,39,0.3); }
+.subtitle { margin: 4px 0 0; color: #7a7a9a; font-size: 12px; letter-spacing: 3px; text-transform: uppercase; }
 
 .layout {
   display: grid;
-  grid-template-columns: 1fr 340px;
-  gap: 24px;
+  grid-template-columns: minmax(0, 1fr) 340px;
+  gap: 20px;
   align-items: start;
 }
 
-@media (max-width: 900px) {
+@media (max-width: 1000px) {
   .layout { grid-template-columns: 1fr; }
 }
 
 /* Доска */
 .board-wrap {
-  position: relative;
+  width: 100%;
+  max-width: calc((100vh - 130px) * 8 / 9);
   aspect-ratio: 8 / 9;
-  border-radius: 12px;
-  background: #1a1a2e;
-  box-shadow: 0 8px 30px rgba(0,0,0,0.5);
-  padding: 6px;
+  margin: 0 auto;
+  border-radius: 16px;
+  background: #080812;
+  box-shadow: 0 20px 60px rgba(0,0,0,0.7), 0 0 0 1px rgba(201,162,39,0.15);
+  overflow: hidden;
 }
 
-.board-grid {
-  display: grid;
-  grid-template-columns: repeat(8, 1fr);
-  grid-template-rows: repeat(9, 1fr);
-  gap: 3px;
+.board-svg {
+  display: block;
+  width: 100%;
   height: 100%;
-}
-
-.cell {
-  background: #2a2a4a;
-  border-radius: 4px;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  font-size: 10px;
-  color: #999;
-  position: relative;
-  transition: background 0.4s, transform 0.3s;
-}
-
-.cell.arrow { background: #1e4a2e; color: #b8e0b8; }
-.cell.snake { background: #4a1e1e; color: #e0b8b8; }
-.cell.landed {
-  background: #c9a227;
-  color: #000;
-  transform: scale(1.06);
-  box-shadow: 0 0 20px rgba(201,162,39,0.7);
-  z-index: 5;
-}
-.cell-num { font-size: 9px; opacity: 0.7; }
-.cell-icon { font-size: 12px; font-weight: bold; }
-
-/* Фишка */
-.pawn {
-  position: absolute;
-  font-size: 30px;
-  line-height: 1;
-  color: #f5d76e;
-  text-shadow: 0 0 10px rgba(245,215,110,0.8), 0 2px 4px rgba(0,0,0,0.8);
-  transform: translate(-50%, -50%);
-  transition: top 0.22s ease, left 0.22s ease;
-  z-index: 20;
-  pointer-events: none;
-  will-change: top, left;
-}
-
-.pawn.climbing {
-  transition: top 1s cubic-bezier(0.4, 0, 0.2, 1), left 0.4s ease;
-}
-
-.pawn.sliding {
-  transition: top 0.9s cubic-bezier(0.7, 0, 0.9, 0.5), left 0.4s ease;
 }
 
 /* Панель */
 .panel {
   display: flex;
   flex-direction: column;
-  gap: 16px;
-  padding: 16px;
-  background: #1a1a2e;
-  border-radius: 12px;
+  gap: 14px;
+  padding: 18px;
+  background: #12122a;
+  border-radius: 14px;
+  border: 1px solid #1e1e3a;
+  box-shadow: 0 10px 40px rgba(0,0,0,0.5);
 }
 
 .intention-block label {
   display: block;
-  font-size: 12px;
-  letter-spacing: 1.5px;
+  font-size: 11px;
+  letter-spacing: 2px;
   color: #c9a227;
   margin-bottom: 6px;
   text-transform: uppercase;
@@ -114,20 +71,21 @@ h1 { margin: 0; font-size: 32px; letter-spacing: 4px; color: #c9a227; }
 
 .intention-block textarea {
   width: 100%;
-  padding: 10px;
-  background: #0e0e1a;
+  padding: 10px 12px;
+  background: #08081a;
   border: 1px solid #2a2a4a;
-  border-radius: 6px;
+  border-radius: 8px;
   color: #e0e0e8;
   font-family: inherit;
   font-size: 14px;
   resize: vertical;
-  transition: border-color 0.2s;
+  transition: border-color 0.2s, box-shadow 0.2s;
 }
 
 .intention-block textarea:focus {
   outline: none;
   border-color: #c9a227;
+  box-shadow: 0 0 0 3px rgba(201,162,39,0.15);
 }
 
 .intention-block textarea:disabled { opacity: 0.5; }
@@ -137,21 +95,20 @@ h1 { margin: 0; font-size: 32px; letter-spacing: 4px; color: #c9a227; }
   display: flex;
   align-items: center;
   gap: 16px;
-  justify-content: center;
+  justify-content: space-between;
 }
 
 .dice {
-  width: 60px;
-  height: 60px;
-  background: #f5f5f5;
-  border-radius: 10px;
-  padding: 8px;
-  box-shadow: 0 4px 12px rgba(0,0,0,0.5), inset 0 -3px 0 rgba(0,0,0,0.15);
+  width: 58px;
+  height: 58px;
+  background: linear-gradient(145deg, #f8f8f8, #d8d8d8);
+  border-radius: 12px;
+  padding: 7px;
+  box-shadow: 0 4px 14px rgba(0,0,0,0.6), inset 0 -3px 0 rgba(0,0,0,0.15);
+  flex-shrink: 0;
 }
 
-.dice.rolling {
-  animation: dice-shake 0.15s infinite;
-}
+.dice.rolling { animation: dice-shake 0.15s infinite; }
 
 @keyframes dice-shake {
   0%   { transform: rotate(-8deg) translateY(0); }
@@ -175,50 +132,55 @@ h1 { margin: 0; font-size: 32px; letter-spacing: 4px; color: #c9a227; }
   border-radius: 50%;
   align-self: center;
   justify-self: center;
-  width: 70%;
-  height: 70%;
+  width: 72%;
+  height: 72%;
 }
 
 /* Кнопки */
 button {
-  padding: 12px 20px;
-  font-size: 15px;
+  padding: 12px 18px;
+  font-size: 14px;
   cursor: pointer;
   border: none;
   border-radius: 8px;
-  background: #c9a227;
+  background: linear-gradient(145deg, #d4b445, #a07c15);
   color: #0e0e1a;
   font-family: inherit;
-  letter-spacing: 1px;
+  letter-spacing: 1.5px;
   font-weight: bold;
+  text-transform: uppercase;
   transition: transform 0.15s, box-shadow 0.15s, opacity 0.2s;
+  flex: 1;
 }
 
 button:hover:not(:disabled) {
   transform: translateY(-2px);
-  box-shadow: 0 6px 16px rgba(201,162,39,0.4);
+  box-shadow: 0 6px 18px rgba(201,162,39,0.4);
 }
 
-button:disabled { opacity: 0.4; cursor: not-allowed; }
+button:disabled { opacity: 0.35; cursor: not-allowed; }
 
 button.reset {
-  background: #2a2a4a;
-  color: #bbb;
-  font-size: 13px;
-  padding: 8px 16px;
+  background: #1e1e3a;
+  color: #9a9ab8;
+  font-size: 12px;
+  padding: 9px 14px;
+  letter-spacing: 1px;
 }
 
+button.reset:hover:not(:disabled) { box-shadow: none; background: #2a2a4a; }
+
 /* Сообщение */
-.message-block { min-height: 80px; }
+.message-block { min-height: 100px; }
 .message {
-  margin: 0 0 8px;
+  margin: 0 0 10px;
   font-size: 14px;
   color: #e0e0e8;
-  line-height: 1.4;
+  line-height: 1.45;
 }
 
 .hint {
-  background: #0e0e1a;
+  background: linear-gradient(90deg, rgba(201,162,39,0.08), transparent);
   border-left: 3px solid #c9a227;
   padding: 10px 12px;
   border-radius: 4px;
@@ -232,25 +194,24 @@ button.reset {
 
 .hint-label {
   font-size: 10px;
-  letter-spacing: 1.5px;
+  letter-spacing: 2px;
   color: #c9a227;
   text-transform: uppercase;
-  margin-bottom: 4px;
+  margin-bottom: 5px;
 }
 
-.hint p { margin: 0; font-size: 13px; line-height: 1.5; color: #ccc; }
+.hint p { margin: 0; font-size: 13px; line-height: 1.55; color: #c8c8d8; }
 
 /* История */
 .history {
-  margin-top: 8px;
-  border-top: 1px solid #2a2a4a;
+  border-top: 1px solid #1e1e3a;
   padding-top: 12px;
 }
 
 .history-label {
-  font-size: 11px;
-  letter-spacing: 1.5px;
-  color: #888;
+  font-size: 10px;
+  letter-spacing: 2px;
+  color: #7a7a9a;
   text-transform: uppercase;
   margin-bottom: 8px;
 }
@@ -259,11 +220,11 @@ button.reset {
   list-style: none;
   margin: 0;
   padding: 0;
-  max-height: 220px;
+  max-height: 200px;
   overflow-y: auto;
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 5px;
 }
 
 .history li {
@@ -273,15 +234,15 @@ button.reset {
   align-items: center;
   font-size: 12px;
   padding: 6px 8px;
-  border-radius: 4px;
-  background: #0e0e1a;
+  border-radius: 5px;
+  background: #08081a;
 }
 
-.history li.arrow { border-left: 3px solid #4a9c5e; }
-.history li.snake { border-left: 3px solid #9c4a4a; }
+.history li.arrow { border-left: 3px solid #e8c44a; }
+.history li.snake { border-left: 3px solid #c44545; }
 .history li.birth { border-left: 3px solid #c9a227; }
 
 .h-turn { color: #666; font-size: 11px; }
-.h-intention { color: #ccc; font-style: italic; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.h-intention { color: #c8c8d8; font-style: italic; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .h-roll { color: #c9a227; }
 .h-to { color: #888; }
