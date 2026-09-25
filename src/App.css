@@ -277,3 +277,76 @@ button.reset:hover:not(:disabled) { box-shadow: none; background: #2a2a4a; }
   font-weight: bold;
   font-family: 'Georgia', serif;
 }
+
+/* Блок победы */
+.gameover-block {
+  padding: 16px;
+  border-radius: 10px;
+  background: linear-gradient(160deg, rgba(201,162,39,0.15), rgba(201,162,39,0.03));
+  border: 1px solid rgba(201,162,39,0.45);
+  box-shadow: 0 0 30px rgba(201,162,39,0.15);
+  animation: hint-appear 0.6s ease-out;
+}
+
+.gameover-title {
+  font-size: 16px;
+  letter-spacing: 2px;
+  color: #f5d76e;
+  text-transform: uppercase;
+  margin-bottom: 8px;
+  text-align: center;
+}
+
+.gameover-text {
+  margin: 0 0 12px;
+  font-size: 13px;
+  line-height: 1.5;
+  color: #c8c8d8;
+}
+
+.save-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.save-actions button {
+  font-size: 12px;
+  padding: 9px 10px;
+  letter-spacing: 1px;
+}
+
+.save-status {
+  margin: 10px 0 0;
+  font-size: 12px;
+  color: #7fbf7f;
+  text-align: center;
+  animation: hint-appear 0.3s ease-out;
+}
+
+/* Мини-кнопка сохранения в заголовке истории */
+.history-label {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.save-mini {
+  background: none;
+  border: none;
+  color: #7a7a9a;
+  font-size: 11px;
+  padding: 2px 6px;
+  letter-spacing: 1px;
+  text-transform: lowercase;
+  font-weight: normal;
+  cursor: pointer;
+  transition: color 0.15s;
+  flex: 0;
+}
+
+.save-mini:hover:not(:disabled) {
+  color: #c9a227;
+  background: none;
+  box-shadow: none;
+  transform: none;
+}

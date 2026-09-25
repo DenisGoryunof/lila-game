@@ -138,8 +138,9 @@ export default function App() {
   const [isRolling, setIsRolling] = useState(false)
   const [isMoving, setIsMoving] = useState(false)
   const [history, setHistory] = useState([])
-  const [rolls, setRolls] = useState([])   // все значения кубика за игру
+  const [rolls, setRolls] = useState([])
   const [gameOver, setGameOver] = useState(false)
+  const [saveStatus, setSaveStatus] = useState('')
   const [pawnPos, setPawnPos] = useState(cellCenter(1))
   const pawnPosRef = useRef(cellCenter(1))
   const busyRef = useRef(false)
@@ -250,6 +251,7 @@ export default function App() {
 
   async function roll() {
     if (busyRef.current) return
+    if (gameOver) return
     if (!intention.trim()) {
       setMessage('Сначала сформулируй намерение — зачем ты делаешь этот ход?')
       return
@@ -273,6 +275,7 @@ export default function App() {
       setIsRolling(false)
       await sleep(400)
 
+      // Рождение
       if (position === 0) {
         if (finalRoll === 6) {
           setPosition(6)
@@ -281,7 +284,13 @@ export default function App() {
           setMessage(`🎲 Выпало 6. Ты родился! Клетка 6 — ${CELLS[6].name}.`)
           setHint(CELLS[6]?.hint || '')
           setHistory(prev => [...prev, {
-            turn: prev.length + 1, intention, roll: finalRoll, to: 6, type: 'birth'
+            turn: prev.length + 1,
+            intention,
+            roll: finalRoll,
+            startedAt: 0,
+            from: 6,
+            to: 6,
+            type: 'birth'
           }])
           setIntention('')
         } else {
@@ -295,16 +304,14 @@ export default function App() {
         return
       }
 
-       setIsMoving(true)
+      setIsMoving(true)
       const startPos = position
       for (let step = 1; step <= finalRoll; step++) {
         await animateTo(cellCenter(startPos + step), 220)
       }
 
       const landed = startPos + finalRoll
-      // ФИКС: фиксируем позицию сразу после движения по клеткам,
-      // ДО стрелы/змеи. Без этого обычный ход не обновлял position,
-      // и следующий бросок начинался от старой позиции.
+      // Фиксируем позицию сразу после движения — до стрелы/змеи
       setPosition(landed)
 
       const arrow = arrowVisuals.find(a => a.from === landed)
@@ -342,6 +349,7 @@ export default function App() {
         turn: prev.length + 1,
         intention,
         roll: finalRoll,
+        startedAt: startPos,
         from: landed,
         to: arrow ? ARROWS[landed] : snake ? SNAKES[landed] : landed,
         type: arrow ? 'arrow' : snake ? 'snake' : 'plain'
@@ -376,10 +384,150 @@ export default function App() {
     setDiceValue(null)
     setHistory([])
     setRolls([])
-	setGameOver(false)
+    setGameOver(false)
+    setSaveStatus('')
     const start = cellCenter(1)
     pawnPosRef.current = start
     setPawnPos(start)
+  }
+
+  // ——— Отчёт об игре ———
+
+  function buildReport() {
+    const now = new Date()
+    const dateStr = now.toLocaleDateString('ru-RU', { day: 'numeric', month: 'long', year: 'numeric' })
+    const timeStr = now.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' })
+
+    const arrows = history.filter(h => h.type === 'arrow')
+    const snakes = history.filter(h => h.type === 'snake')
+    const plains = history.filter(h => h.type === 'plain')
+    const reachedGoal = gameOver || position === 68
+
+    const byIntention = new Map()
+    history.forEach(h => {
+      if (h.type === 'birth') return
+      const clean = (h.intention || '').trim() || '(без намерения)'
+      const key = clean.toLowerCase()
+      if (!byIntention.has(key)) {
+        byIntention.set(key, { text: clean, total: 0, arrows: [], snakes: [], plains: 0 })
+      }
+      const e = byIntention.get(key)
+      e.total++
+      if (h.type === 'arrow') e.arrows.push(h.from)
+      else if (h.type === 'snake') e.snakes.push(h.from)
+      else e.plains++
+    })
+
+    const intentions = [...byIntention.values()].sort((a, b) => {
+      const balA = a.arrows.length - a.snakes.length
+      const balB = b.arrows.length - b.snakes.length
+      if (balB !== balA) return balB - balA
+      return b.total - a.total
+    })
+
+    const raising = intentions.filter(v => v.arrows.length > 0)
+    const falling = intentions.filter(v => v.snakes.length > 0)
+
+    const L = []
+    L.push('# Лила — отчёт об игре')
+    L.push('')
+    L.push(`**Дата:** ${dateStr}, ${timeStr}`)
+    if (reachedGoal) {
+      L.push('**Итог:** 🌟 Космическое сознание (клетка 68) — цель достигнута')
+    } else {
+      L.push(`**Итог:** остановлено на клетке ${position} — ${CELLS[position]?.name || ''}`)
+    }
+    L.push(`**Всего ходов:** ${history.length}`)
+    L.push(`**Стрел пройдено:** ${arrows.length} · **Змей пережито:** ${snakes.length} · **Обычных ходов:** ${plains.length}`)
+    if (rolls.length > 0) {
+      const avg = (rolls.reduce((s, r) => s + r, 0) / rolls.length).toFixed(2)
+      L.push(`**Броски кубика:** ${rolls.join(', ')}`)
+      L.push(`**Средний бросок:** ${avg}`)
+    }
+    L.push('')
+
+    if (intentions.length > 0) {
+      L.push('## Намерения и их след')
+      L.push('')
+      L.push('| Намерение | Ходов | Возносило | Низвергало | Баланс |')
+      L.push('|-----------|-------|-----------|------------|--------|')
+      intentions.forEach(v => {
+        const bal = v.arrows.length - v.snakes.length
+        const balStr = bal > 0 ? `+${bal}` : String(bal)
+        L.push(`| «${v.text}» | ${v.total} | ${v.arrows.length} | ${v.snakes.length} | ${balStr} |`)
+      })
+      L.push('')
+    }
+
+    if (raising.length > 0) {
+      L.push('## Что возносило')
+      L.push('')
+      raising.forEach(v => {
+        const cells = v.arrows.map(n => `${n} (${CELLS[n]?.name || ''})`).join(', ')
+        L.push(`- «${v.text}» — стрелы на клетках: ${cells}`)
+      })
+      L.push('')
+    }
+
+    if (falling.length > 0) {
+      L.push('## Что низвергало')
+      L.push('')
+      falling.forEach(v => {
+        const cells = v.snakes.map(n => `${n} (${CELLS[n]?.name || ''})`).join(', ')
+        L.push(`- «${v.text}» — змеи на клетках: ${cells}`)
+      })
+      L.push('')
+    }
+
+    L.push('## Полная история ходов')
+    L.push('')
+    history.forEach(h => {
+      const intent = (h.intention || '').trim() || '(без намерения)'
+      const start = h.startedAt ?? '?'
+      if (h.type === 'birth') {
+        L.push(`**#${h.turn}** · «${intent}» · 🎲 ${h.roll} · Рождение → клетка 6 (${CELLS[6]?.name})`)
+      } else if (h.type === 'arrow') {
+        L.push(`**#${h.turn}** · «${intent}» · 🎲 ${h.roll} · ${start} → ${h.from} (${CELLS[h.from]?.name}) · ⬆ Стрела → ${h.to} (${CELLS[h.to]?.name})`)
+      } else if (h.type === 'snake') {
+        L.push(`**#${h.turn}** · «${intent}» · 🎲 ${h.roll} · ${start} → ${h.from} (${CELLS[h.from]?.name}) · ⬇ Змея → ${h.to} (${CELLS[h.to]?.name})`)
+      } else {
+        L.push(`**#${h.turn}** · «${intent}» · 🎲 ${h.roll} · ${start} → ${h.to} (${CELLS[h.to]?.name || ''})`)
+      }
+    })
+
+    L.push('')
+    L.push('---')
+    L.push('')
+    L.push('_Сгенерировано в Лиле — игре самопознания_')
+
+    return L.join('\n')
+  }
+
+  function downloadReport() {
+    const md = buildReport()
+    const blob = new Blob([md], { type: 'text/markdown;charset=utf-8' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    const stamp = new Date().toISOString().slice(0, 19).replace(/[:T]/g, '-')
+    a.download = `lila-${stamp}.md`
+    document.body.appendChild(a)
+    a.click()
+    document.body.removeChild(a)
+    URL.revokeObjectURL(url)
+    setSaveStatus('Файл сохранён')
+    setTimeout(() => setSaveStatus(''), 2500)
+  }
+
+  async function copyReport() {
+    try {
+      await navigator.clipboard.writeText(buildReport())
+      setSaveStatus('Скопировано в буфер обмена')
+      setTimeout(() => setSaveStatus(''), 2500)
+    } catch (e) {
+      setSaveStatus('Не удалось скопировать: ' + (e?.message || e))
+      setTimeout(() => setSaveStatus(''), 4000)
+    }
   }
 
   return (
@@ -437,6 +585,21 @@ export default function App() {
         </div>
 
         <aside className="panel">
+          {gameOver && (
+            <div className="gameover-block">
+              <div className="gameover-title">🌟 Космическое сознание</div>
+              <p className="gameover-text">
+                Игра завершена за {history.length} {history.length === 1 ? 'ход' : history.length < 5 ? 'хода' : 'ходов'}.
+                Сохрани отчёт — в нём видно, какие намерения возносили, а какие низвергали.
+              </p>
+              <div className="save-actions">
+                <button onClick={downloadReport}>Скачать .md</button>
+                <button onClick={copyReport}>Скопировать</button>
+              </div>
+              {saveStatus && <p className="save-status">{saveStatus}</p>}
+            </div>
+          )}
+
           <div className="intention-block">
             <label htmlFor="intention">Намерение перед ходом</label>
             <textarea
@@ -444,17 +607,20 @@ export default function App() {
               value={intention}
               onChange={e => setIntention(e.target.value)}
               placeholder="Зачем ты делаешь этот ход?"
-              disabled={isRolling || isMoving}
+              disabled={isRolling || isMoving || gameOver}
               rows={3}
             />
           </div>
 
-          <button
-			  onClick={roll}
-			  disabled={isRolling || isMoving || !intention.trim() || gameOver}
-			>
-			  {gameOver ? 'Игра завершена' : isRolling ? 'Бросаем…' : isMoving ? 'Двигаемся…' : 'Бросить кубик'}
-			</button>
+          <div className="roll-block">
+            <Dice value={diceValue} rolling={isRolling} />
+            <button
+              onClick={roll}
+              disabled={isRolling || isMoving || !intention.trim() || gameOver}
+            >
+              {gameOver ? 'Игра завершена' : isRolling ? 'Бросаем…' : isMoving ? 'Двигаемся…' : 'Бросить кубик'}
+            </button>
+          </div>
 
           {rolls.length > 0 && (
             <div className="rolls-strip">
@@ -481,7 +647,12 @@ export default function App() {
 
           {history.length > 0 && (
             <div className="history">
-              <div className="history-label">История ({history.length})</div>
+              <div className="history-label">
+                <span>История ({history.length})</span>
+                <button className="save-mini" onClick={downloadReport}>
+                  ↓ сохранить
+                </button>
+              </div>
               <ul>
                 {history.slice().reverse().map((h, i) => (
                   <li key={i} className={h.type}>
