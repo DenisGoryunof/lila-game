@@ -1,4 +1,4 @@
-import { useState, useRef, useMemo, memo } from 'react'
+import { useState, useRef, useMemo, memo, useEffect } from 'react'
 import {
   CELLS, ARROWS, SNAKES,
   cellCenter, buildSnakePoints, buildArrowPoints, pointsToPath
@@ -6,6 +6,8 @@ import {
 import './App.css'
 
 const sleep = (ms) => new Promise(r => setTimeout(r, ms))
+const STORAGE_KEY = 'lila-game-state-v1'
+const STORAGE_VERSION = 1
 
 function Dice({ value, rolling }) {
   const dotMap = {
@@ -141,9 +143,12 @@ export default function App() {
   const [rolls, setRolls] = useState([])
   const [gameOver, setGameOver] = useState(false)
   const [saveStatus, setSaveStatus] = useState('')
+  const [startedAt, setStartedAt] = useState(null)
+  const [restored, setRestored] = useState(false)
   const [pawnPos, setPawnPos] = useState(cellCenter(1))
   const pawnPosRef = useRef(cellCenter(1))
   const busyRef = useRef(false)
+  const fileInputRef = useRef(null)
 
   const snakeVisuals = useMemo(() => {
     return Object.entries(SNAKES).map(([from, to]) => {
@@ -189,6 +194,53 @@ export default function App() {
       }
     })
   }, [])
+
+  // ——— Восстановление из localStorage при запуске ———
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem(STORAGE_KEY)
+      if (!raw) return
+      const s = JSON.parse(raw)
+      if (!s || s.version !== STORAGE_VERSION || !Array.isArray(s.history)) return
+      if (s.history.length === 0) return
+
+      setPosition(s.position || 0)
+      setHistory(s.history)
+      setRolls(s.rolls || [])
+      setGameOver(!!s.gameOver)
+      setStartedAt(s.startedAt || null)
+      const p = cellCenter(s.position || 1)
+      pawnPosRef.current = p
+      setPawnPos(p)
+      setRestored(true)
+      setMessage(
+        s.gameOver
+          ? 'Предыдущая партия завершена. Можно посмотреть отчёт или начать заново.'
+          : `Партия восстановлена. Продолжаешь с клетки ${s.position} — ${CELLS[s.position]?.name || ''}.`
+      )
+    } catch (e) {
+      console.warn('Не удалось восстановить партию:', e)
+    }
+  }, [])
+
+  // ——— Автосохранение в localStorage ———
+  useEffect(() => {
+    if (history.length === 0) return
+    const state = {
+      version: STORAGE_VERSION,
+      savedAt: Date.now(),
+      startedAt,
+      position,
+      history,
+      rolls,
+      gameOver
+    }
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(state))
+    } catch (e) {
+      console.warn('Не удалось сохранить партию:', e)
+    }
+  }, [position, history, rolls, gameOver, startedAt])
 
   function animateTo(target, duration) {
     const start = { ...pawnPosRef.current }
@@ -257,12 +309,16 @@ export default function App() {
       return
     }
 
+    if (restored) setRestored(false)
+
     busyRef.current = true
     setIsRolling(true)
     setHint('')
     setLandedCell(null)
 
     try {
+      if (!startedAt) setStartedAt(Date.now())
+
       const finalRoll = Math.floor(Math.random() * 6) + 1
       setRolls(prev => [...prev, finalRoll])
 
@@ -275,7 +331,6 @@ export default function App() {
       setIsRolling(false)
       await sleep(400)
 
-      // Рождение
       if (position === 0) {
         if (finalRoll === 6) {
           setPosition(6)
@@ -311,7 +366,6 @@ export default function App() {
       }
 
       const landed = startPos + finalRoll
-      // Фиксируем позицию сразу после движения — до стрелы/змеи
       setPosition(landed)
 
       const arrow = arrowVisuals.find(a => a.from === landed)
@@ -355,7 +409,6 @@ export default function App() {
         type: arrow ? 'arrow' : snake ? 'snake' : 'plain'
       }])
 
-      // Победа — только на клетке 68 «Космическое сознание»
       const finalPosition = arrow ? ARROWS[landed] : snake ? SNAKES[landed] : landed
       if (finalPosition === 68) {
         setMessage(prev => prev + ' 🌟 Ты достиг клетки 68 — Космическое сознание. Игра завершена.')
@@ -386,12 +439,92 @@ export default function App() {
     setRolls([])
     setGameOver(false)
     setSaveStatus('')
+    setStartedAt(null)
+    setRestored(false)
     const start = cellCenter(1)
     pawnPosRef.current = start
     setPawnPos(start)
+    try { localStorage.removeItem(STORAGE_KEY) } catch {}
   }
 
-  // ——— Отчёт об игре ———
+  // ——— Экспорт / импорт состояния ———
+
+  function buildState() {
+    return {
+      version: STORAGE_VERSION,
+      savedAt: Date.now(),
+      startedAt,
+      position,
+      history,
+      rolls,
+      gameOver
+    }
+  }
+
+  function downloadState() {
+    const state = buildState()
+    const blob = new Blob([JSON.stringify(state, null, 2)], { type: 'application/json;charset=utf-8' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    const stamp = new Date().toISOString().slice(0, 19).replace(/[:T]/g, '-')
+    a.download = `lila-save-${stamp}.json`
+    document.body.appendChild(a)
+    a.click()
+    document.body.removeChild(a)
+    URL.revokeObjectURL(url)
+    setSaveStatus('Файл партии сохранён')
+    setTimeout(() => setSaveStatus(''), 2500)
+  }
+
+  function pickStateFile() {
+    fileInputRef.current?.click()
+  }
+
+  function applyState(s) {
+    if (!s || s.version !== STORAGE_VERSION || !Array.isArray(s.history)) {
+      setSaveStatus('Файл не подходит — неверный формат')
+      setTimeout(() => setSaveStatus(''), 4000)
+      return
+    }
+    setPosition(s.position || 0)
+    setHistory(s.history)
+    setRolls(s.rolls || [])
+    setGameOver(!!s.gameOver)
+    setStartedAt(s.startedAt || null)
+    setLandedCell(null)
+    setHint('')
+    setDiceValue(null)
+    const p = cellCenter(s.position || 1)
+    pawnPosRef.current = p
+    setPawnPos(p)
+    setRestored(true)
+    setMessage(
+      s.gameOver
+        ? 'Партия загружена. Игра в ней уже завершена — можно посмотреть отчёт или начать заново.'
+        : `Партия загружена. Продолжаешь с клетки ${s.position} — ${CELLS[s.position]?.name || ''}.`
+    )
+    setSaveStatus('Партия загружена')
+    setTimeout(() => setSaveStatus(''), 2500)
+  }
+
+  function onStateFileChosen(e) {
+    const file = e.target.files?.[0]
+    if (!file) return
+    const reader = new FileReader()
+    reader.onload = () => {
+      try {
+        applyState(JSON.parse(reader.result))
+      } catch (err) {
+        setSaveStatus('Не удалось прочитать файл: ' + (err?.message || err))
+        setTimeout(() => setSaveStatus(''), 4000)
+      }
+    }
+    reader.readAsText(file)
+    e.target.value = ''
+  }
+
+  // ——— Отчёт .md (для чтения) ———
 
   function buildReport() {
     const now = new Date()
@@ -510,12 +643,12 @@ export default function App() {
     const a = document.createElement('a')
     a.href = url
     const stamp = new Date().toISOString().slice(0, 19).replace(/[:T]/g, '-')
-    a.download = `lila-${stamp}.md`
+    a.download = `lila-report-${stamp}.md`
     document.body.appendChild(a)
     a.click()
     document.body.removeChild(a)
     URL.revokeObjectURL(url)
-    setSaveStatus('Файл сохранён')
+    setSaveStatus('Отчёт сохранён')
     setTimeout(() => setSaveStatus(''), 2500)
   }
 
@@ -536,6 +669,14 @@ export default function App() {
         <h1>Лила</h1>
         <p className="subtitle">Игра самопознания · 72 клетки</p>
       </header>
+
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept="application/json,.json"
+        style={{ display: 'none' }}
+        onChange={onStateFileChosen}
+      />
 
       <div className="layout">
         <div className="board-wrap">
@@ -585,6 +726,18 @@ export default function App() {
         </div>
 
         <aside className="panel">
+          {restored && !gameOver && (
+            <div className="restored-banner">
+              <div className="restored-title">↺ Партия восстановлена</div>
+              <p className="restored-text">
+                Продолжаешь с клетки {position} — {CELLS[position]?.name || ''}. Сформулируй новое намерение и бросай.
+              </p>
+              <button className="restored-dismiss" onClick={() => setRestored(false)}>
+                понятно
+              </button>
+            </div>
+          )}
+
           {gameOver && (
             <div className="gameover-block">
               <div className="gameover-title">🌟 Космическое сознание</div>
@@ -593,7 +746,7 @@ export default function App() {
                 Сохрани отчёт — в нём видно, какие намерения возносили, а какие низвергали.
               </p>
               <div className="save-actions">
-                <button onClick={downloadReport}>Скачать .md</button>
+                <button onClick={downloadReport}>Отчёт .md</button>
                 <button onClick={copyReport}>Скопировать</button>
               </div>
               {saveStatus && <p className="save-status">{saveStatus}</p>}
@@ -641,6 +794,29 @@ export default function App() {
             )}
           </div>
 
+          <div className="state-actions">
+            <button
+              className="state-btn"
+              onClick={downloadState}
+              disabled={history.length === 0 || isRolling || isMoving}
+              title="Сохранить партию в файл .json — можно продолжить позже"
+            >
+              💾 Сохранить партию
+            </button>
+            <button
+              className="state-btn"
+              onClick={pickStateFile}
+              disabled={isRolling || isMoving}
+              title="Загрузить партию из файла .json"
+            >
+              📂 Загрузить партию
+            </button>
+          </div>
+
+          {!gameOver && saveStatus && (
+            <p className="save-status">{saveStatus}</p>
+          )}
+
           <button className="reset" onClick={reset} disabled={isRolling || isMoving}>
             Начать заново
           </button>
@@ -650,7 +826,7 @@ export default function App() {
               <div className="history-label">
                 <span>История ({history.length})</span>
                 <button className="save-mini" onClick={downloadReport}>
-                  ↓ сохранить
+                  ↓ отчёт
                 </button>
               </div>
               <ul>

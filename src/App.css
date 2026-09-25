@@ -350,3 +350,73 @@ button.reset:hover:not(:disabled) { box-shadow: none; background: #2a2a4a; }
   box-shadow: none;
   transform: none;
 }
+
+/* Баннер восстановления */
+.restored-banner {
+  padding: 12px 14px;
+  border-radius: 10px;
+  background: linear-gradient(160deg, rgba(122,122,154,0.18), rgba(122,122,154,0.04));
+  border: 1px solid rgba(122,122,154,0.4);
+  animation: hint-appear 0.4s ease-out;
+}
+
+.restored-title {
+  font-size: 12px;
+  letter-spacing: 2px;
+  color: #a8a8c8;
+  text-transform: uppercase;
+  margin-bottom: 6px;
+}
+
+.restored-text {
+  margin: 0 0 8px;
+  font-size: 13px;
+  line-height: 1.45;
+  color: #c8c8d8;
+}
+
+.restored-dismiss {
+  background: none;
+  border: 1px solid rgba(122,122,154,0.4);
+  color: #a8a8c8;
+  font-size: 11px;
+  padding: 4px 10px;
+  letter-spacing: 1px;
+  text-transform: lowercase;
+  cursor: pointer;
+  flex: 0;
+}
+
+.restored-dismiss:hover:not(:disabled) {
+  color: #c9a227;
+  border-color: #c9a227;
+  background: none;
+  box-shadow: none;
+  transform: none;
+}
+
+/* Кнопки сохранения / загрузки партии */
+.state-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+.state-btn {
+  background: #1e1e3a;
+  color: #c8c8d8;
+  font-size: 11px;
+  padding: 9px 8px;
+  letter-spacing: 1px;
+  text-transform: none;
+  font-weight: normal;
+  border: 1px solid #2a2a4a;
+}
+
+.state-btn:hover:not(:disabled) {
+  background: #25254a;
+  border-color: #c9a227;
+  color: #f5d76e;
+  box-shadow: none;
+  transform: none;
+}
