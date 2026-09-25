@@ -295,17 +295,21 @@ export default function App() {
         return
       }
 
-      setIsMoving(true)
+       setIsMoving(true)
       const startPos = position
       for (let step = 1; step <= finalRoll; step++) {
         await animateTo(cellCenter(startPos + step), 220)
       }
 
       const landed = startPos + finalRoll
+      // ФИКС: фиксируем позицию сразу после движения по клеткам,
+      // ДО стрелы/змеи. Без этого обычный ход не обновлял position,
+      // и следующий бросок начинался от старой позиции.
+      setPosition(landed)
+
       const arrow = arrowVisuals.find(a => a.from === landed)
       const snake = snakeVisuals.find(s => s.from === landed)
 
-      // Проверка на повторяющийся урок: та же змея, что и в прошлый раз
       const lastSnake = history.length > 0
         ? history[history.length - 1].from
         : null
@@ -338,15 +342,13 @@ export default function App() {
         turn: prev.length + 1,
         intention,
         roll: finalRoll,
-        from: landed,              // куда фишка попала до стрелы/змеи
+        from: landed,
         to: arrow ? ARROWS[landed] : snake ? SNAKES[landed] : landed,
         type: arrow ? 'arrow' : snake ? 'snake' : 'plain'
       }])
 
-  // Финальная позиция после возможной стрелы или змеи
-      const finalPosition = arrow ? ARROWS[landed] : snake ? SNAKES[landed] : landed
-
       // Победа — только на клетке 68 «Космическое сознание»
+      const finalPosition = arrow ? ARROWS[landed] : snake ? SNAKES[landed] : landed
       if (finalPosition === 68) {
         setMessage(prev => prev + ' 🌟 Ты достиг клетки 68 — Космическое сознание. Игра завершена.')
         setHint('Ты завершил путь. Освобождение — не финиш, а возвращение к тому, с чего начал. Посмотри на пройденный путь без сожаления.')
