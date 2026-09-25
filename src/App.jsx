@@ -139,6 +139,7 @@ export default function App() {
   const [isMoving, setIsMoving] = useState(false)
   const [history, setHistory] = useState([])
   const [rolls, setRolls] = useState([])   // все значения кубика за игру
+  const [gameOver, setGameOver] = useState(false)
   const [pawnPos, setPawnPos] = useState(cellCenter(1))
   const pawnPosRef = useRef(cellCenter(1))
   const busyRef = useRef(false)
@@ -342,9 +343,14 @@ export default function App() {
         type: arrow ? 'arrow' : snake ? 'snake' : 'plain'
       }])
 
-      if (landed === 72) {
-        setMessage('🎉 Ты достиг клетки 72. Игра завершена.')
-        setHint(CELLS[72].hint)
+  // Финальная позиция после возможной стрелы или змеи
+      const finalPosition = arrow ? ARROWS[landed] : snake ? SNAKES[landed] : landed
+
+      // Победа — только на клетке 68 «Космическое сознание»
+      if (finalPosition === 68) {
+        setMessage(prev => prev + ' 🌟 Ты достиг клетки 68 — Космическое сознание. Игра завершена.')
+        setHint('Ты завершил путь. Освобождение — не финиш, а возвращение к тому, с чего начал. Посмотри на пройденный путь без сожаления.')
+        setGameOver(true)
       }
 
       setIntention('')
@@ -368,6 +374,7 @@ export default function App() {
     setDiceValue(null)
     setHistory([])
     setRolls([])
+	setGameOver(false)
     const start = cellCenter(1)
     pawnPosRef.current = start
     setPawnPos(start)
@@ -440,12 +447,12 @@ export default function App() {
             />
           </div>
 
-          <div className="roll-block">
-            <Dice value={diceValue} rolling={isRolling} />
-            <button onClick={roll} disabled={isRolling || isMoving || !intention.trim()}>
-              {isRolling ? 'Бросаем…' : isMoving ? 'Двигаемся…' : 'Бросить кубик'}
-            </button>
-          </div>
+          <button
+			  onClick={roll}
+			  disabled={isRolling || isMoving || !intention.trim() || gameOver}
+			>
+			  {gameOver ? 'Игра завершена' : isRolling ? 'Бросаем…' : isMoving ? 'Двигаемся…' : 'Бросить кубик'}
+			</button>
 
           {rolls.length > 0 && (
             <div className="rolls-strip">
