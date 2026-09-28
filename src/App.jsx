@@ -845,6 +845,10 @@ export default function App() {
           )}
         </aside>
       </div>
+
+      <footer className="site-footer">
+        Сайт использует Яндекс.Метрику для анализа посещаемости
+      </footer>
     </div>
   )
 }

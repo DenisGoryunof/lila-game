@@ -420,3 +420,13 @@ button.reset:hover:not(:disabled) { box-shadow: none; background: #2a2a4a; }
   box-shadow: none;
   transform: none;
 }
+
+.site-footer {
+  margin-top: 24px;
+  padding: 14px 0 8px;
+  text-align: center;
+  font-size: 11px;
+  color: #5a5a7a;
+  letter-spacing: 0.5px;
+  border-top: 1px solid #1a1a2e;
+}
